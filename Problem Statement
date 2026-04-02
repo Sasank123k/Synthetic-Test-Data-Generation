@@ -1,0 +1,101 @@
+System Architecture: Deterministic Synthetic Data Engine
+1. Problem Statement
+The enterprise requires a framework to validate complex credit decisioning and policy logic without relying on sensitive production data (PII). Manual data creation is inefficient and lacks edge-case coverage. The solution must generate synthetic data to test decisioning behavior across normal, edge, and failure scenarios.
+
+Strict Constraints:
+
+AI must be used for scenario exploration and configuration, not for generating the actual data rows (which introduces nondeterminism).
+
+Generation must be deterministic, explainable, and repeatable.
+
+Rule constraints must be completely decoupled from the data generation logic.
+
+2. Core Solution: The "NL2Config" Pipeline
+The system utilizes a "Natural Language to Configuration" (NL2Config) pattern with a Human-in-the-Loop approval step.
+
+The user inputs a natural language prompt describing the test scenario.
+
+An LLM translates this prompt into a strictly typed JSON configuration representing the schema and mathematical rules.
+
+The user reviews and approves this configuration in an interactive UI.
+
+A deterministic data engine parses the JSON and mathematically generates the exact datasets required, attaching explainability tags to every row.
+
+3. Technology Stack
+Frontend: React, Tailwind CSS, WebSockets (for live observability).
+
+Backend: Python, FastAPI, Pydantic (for strict data validation).
+
+Generation Engine: Pandas, NumPy, Faker (with strict seeding for determinism).
+
+AI Integration: OpenAI/Gemini API (forced JSON response mode).
+
+Database: MongoDB (document store for JSON rule configurations).
+
+Deployment Context: Containerized via Docker, targetable for GCP Cloud Run or Kubernetes.
+
+4. System Architecture & Data Flow
+Flow Sequence
+Prompt Ingestion: UI sends a text string to POST /api/generate-draft-config.
+
+AI Orchestration: FastAPI passes the prompt and a predefined Pydantic schema to the LLM.
+
+Validation: FastAPI receives the LLM response and validates it against the Pydantic schema. If validation fails, it auto-retries or returns an error.
+
+Human Approval: UI retrieves the drafted JSON via GET /api/config/{id}. The user edits constraints, distribution ratios, and rules. User submits final approval to POST /api/config/{id}/approve.
+
+Deterministic Generation: FastAPI triggers a background task. The Pandas engine reads the approved JSON. It calculates row allocations based on distribution constraints, generates boundary values, and fills remaining columns.
+
+Live Observability: As Pandas processes chunks of data, FastAPI streams progress and validation metrics via WebSockets to the React UI.
+
+Export: User downloads the final CSV/JSON via GET /api/export/{job_id}.
+
+5. Data Contracts & Schemas
+The AI agent must adhere to this exact configuration structure to maintain the separation between rules and generation logic.
+
+Core Configuration Schema (Pydantic / JSON)
+
+config_id: String (UUID)
+
+schema_definition: List of objects containing column_name, data_type (e.g., INT, STRING, BOOLEAN).
+
+distribution_constraints: List of objects containing column_name, categories (List of strings), ratios (List of integers summing to 100).
+
+boundary_rules: List of objects defining edge cases. Contains column_name, operator (>, <, =, BETWEEN), value, and action (e.g., "approve", "reject").
+
+total_records: Integer
+
+6. Module Implementation Details
+Module A: Frontend (React)
+View 1: Configuration Builder. A text area for the natural language prompt. A structured form rendering the returned JSON configuration, allowing users to modify schema types, adjust ratio percentages, and edit boundary rules.
+
+View 2: Observability Dashboard. A live view utilizing WebSockets to display generation progress. Includes visual indicators for "Rule Coverage %" and "Conflicting Rules Detected."
+
+State Management: Use standard React hooks. The core state is the JSON configuration object.
+
+Module B: AI Orchestration (FastAPI)
+Endpoint: POST /api/generate-draft-config
+
+Logic: Construct a system prompt commanding the LLM to act as a data engineering expert. Provide the exact Pydantic schema and instruct the LLM to map the user's natural language request into that schema.
+
+Error Handling: Implement a try/catch block around the LLM call. If Pydantic throws a ValidationError on the LLM's response, catch it and return a structured error to the UI.
+
+Module C: Deterministic Data Engine (Pandas)
+This is the core mathematical engine. It must never call an LLM.
+
+Seeding: Set np.random.seed() and Faker.seed() using the config_id to ensure multiple runs of the same configuration produce identical output.
+
+Step 1: Distribution Allocation. For distribution constraints (e.g., 20:30:50 ratio), calculate exact row counts. Create a base Pandas DataFrame and populate the constrained column first to anchor the logic.
+
+Step 2: Boundary Injection. Parse the boundary_rules. For every rule (e.g., score > 700), forcefully insert rows that test the exact boundary (699, 700, 701) to guarantee edge-case coverage.
+
+Step 3: Interdependent Logic. Populate remaining columns conditionally based on the anchor columns (e.g., if the distribution step assigned "Sub-prime" to a row, ensure the credit_score column for that row is populated with a mathematically appropriate value).
+
+Step 4: Explainability Tagging. Add a metadata column named _generation_reason. Append text explaining the logic for that specific row (e.g., "Generated to test boundary condition: score > 700").
+
+Module D: Observability & Validation (FastAPI WebSockets)
+Implementation: Implement a WebSocket route in FastAPI.
+
+Metrics: As the Pandas engine completes each step (Distribution, Boundary, Fill), yield a JSON payload to the WebSocket containing rows_processed, total_rows, and current_stage.
+
+Validation Check: Before saving the final dataset, run a validation function that queries the generated DataFrame to confirm the requested distribution ratios match the actual generated output. Stream this pass/fail status to the UI.
