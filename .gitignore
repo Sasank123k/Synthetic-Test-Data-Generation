@@ -1,0 +1,66 @@
+# ============================================================
+# Synthetic Data Engine — Git Ignore Rules
+# ============================================================
+
+# ─── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+
+# ─── Virtual Environments ────────────────────────────────────
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+
+# ─── Node.js / Frontend ─────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ─── Environment Variables (SENSITIVE — never commit) ────────
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# ─── Generated Data Output ───────────────────────────────────
+data-volumes/*.csv
+data-volumes/*.json
+backend/data-volumes/*.csv
+backend/data-volumes/*.json
+
+# ─── IDE / Editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS Generated ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ─── Logs & Temp Files ──────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.orig
+startup_error.txt
+
+# ─── Coverage & Test Artifacts ───────────────────────────────
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
